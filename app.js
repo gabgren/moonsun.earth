@@ -79,6 +79,10 @@ viewer.camera.flyTo({
 
 // ---- Location marker + sun/moon arrows -------------------------------------
 let selected = null;   // { lon, lat, height }
+// Declared up here (not in the first-person section below) because the marker
+// and arrow callbacks read them on the very first render tick.
+let groundMode = false;
+let fpsEnabled = false;
 const marker = viewer.entities.add({
   position: new Cesium.CallbackProperty(() =>
     selected ? Cesium.Cartesian3.fromDegrees(selected.lon, selected.lat, selected.height) : undefined, false),
@@ -306,7 +310,7 @@ document.getElementById("speed").addEventListener("change", (e) => {
 viewer.timeline.addEventListener("settime", () => setLive(false), false);
 
 // ---- First-person "stand here" view ---------------------------------------
-let groundMode = false;
+// (groundMode is declared near the top so the marker callback can read it.)
 
 // Free-look toggle: remap LEFT_DRAG to "look" (rotate camera in place) instead
 // of the default orbit-the-globe behaviour — Street-View style.
@@ -316,7 +320,6 @@ const DEFAULT_TILT = ssc.tiltEventTypes;
 const DEFAULT_LOOK = ssc.lookEventTypes;
 const lookCheckbox = document.getElementById("lookmode");
 const fpsHint = document.getElementById("fpsHint");
-let fpsEnabled = false;
 let eyeHeight = 1.8;   // metres above ground while walking
 
 function setLookMode(on) {
