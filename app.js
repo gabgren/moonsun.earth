@@ -76,9 +76,8 @@ let colorGradeStage = null;
     if (scene.postProcessStages.fxaa) scene.postProcessStages.fxaa.enabled = true;
 
     scene.globe.showGroundAtmosphere = true;
-    scene.globe.atmosphereLightIntensity = 12;
     scene.fog.enabled = true;
-    scene.fog.density = 0.0002;
+    scene.fog.density = 0.00015;
 
     // Sun-driven shadows (dramatic at low sun / eclipse dusk).
     scene.shadowMap.enabled = true;
@@ -86,14 +85,15 @@ let colorGradeStage = null;
     scene.shadowMap.size = 2048;
     scene.shadowMap.maximumDistance = 20000;
 
+    // Very subtle bloom — only the brightest pixels, tight spread.
     const bloom = scene.postProcessStages.bloom;
     bloom.enabled = true;
     bloom.uniforms.glowOnly = false;
-    bloom.uniforms.contrast = 128;
-    bloom.uniforms.brightness = -0.2;
-    bloom.uniforms.delta = 1.0;
-    bloom.uniforms.sigma = 2.2;
-    bloom.uniforms.stepSize = 1.0;
+    bloom.uniforms.contrast = 80;
+    bloom.uniforms.brightness = -0.7;   // high threshold → only the sun core blooms
+    bloom.uniforms.delta = 1.5;
+    bloom.uniforms.sigma = 1.0;         // tight halo, not a screen-wide wash
+    bloom.uniforms.stepSize = 0.5;
 
     // Vignette + subtle warm colour grade for ambiance.
     colorGradeStage = scene.postProcessStages.add(new Cesium.PostProcessStage({
@@ -104,10 +104,10 @@ let colorGradeStage = null;
         "void main() {",
         "  vec4 color = texture(colorTexture, v_textureCoordinates);",
         "  vec2 uv = v_textureCoordinates - 0.5;",
-        "  float vig = smoothstep(0.95, 0.32, length(uv));",
-        "  color.rgb *= mix(0.68, 1.0, vig);",              // vignette
-        "  color.rgb = (color.rgb - 0.5) * 1.07 + 0.5;",    // gentle contrast
-        "  color.rgb *= vec3(1.03, 1.0, 0.965);",           // warm tint
+        "  float vig = smoothstep(1.0, 0.35, length(uv));",
+        "  color.rgb *= mix(0.85, 1.0, vig);",              // subtle vignette
+        "  color.rgb = (color.rgb - 0.5) * 1.03 + 0.5;",    // slight contrast
+        "  color.rgb *= vec3(1.02, 1.0, 0.985);",           // faint warm tint
         "  out_FragColor = color;",
         "}",
       ].join("\n"),
