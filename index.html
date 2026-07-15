@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MoonSun.Earth — Sun &amp; Moon in the sky from anywhere on Earth</title>
+  <link id="favicon" rel="icon" href="data:," />
 
   <!-- CesiumJS -->
   <link href="https://cdn.jsdelivr.net/npm/cesium@1.123/Build/Cesium/Widgets/widgets.css" rel="stylesheet" />
@@ -59,6 +60,16 @@
     .sun .v { color: #ffd166; }
     .moon .v { color: #a8c7ff; }
     .hint { font-size: 11px; color: #7f8b9e; margin-top: 10px; }
+    /* Bookmarks */
+    .bmrow { display: flex; gap: 6px; align-items: stretch; margin: 4px 0; }
+    .bmgo {
+      flex: 1; min-width: 0; text-align: left; background: #1a2030;
+      display: flex; flex-direction: column; gap: 1px; padding: 6px 9px; font-weight: 500;
+    }
+    .bmgo .bmlabel { color: #e8ecf2; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bmgo .bmmeta { color: #8b95a5; font-size: 10px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bmdel { flex: 0 0 auto; background: transparent; color: #6b7688; padding: 0 7px; font-size: 12px; }
+    .bmdel:hover { background: #3a2030; color: #ff8080; }
     /* Weather */
     #wxVeil { position: absolute; inset: 0; z-index: 2; pointer-events: none;
               background: rgba(0,0,0,0); transition: background .4s ease; }
@@ -91,7 +102,6 @@
       <button id="liveBtn">● Live</button>
       <button id="applyBtn" class="secondary">Apply time</button>
     </div>
-    <button id="maxEclipseBtn" class="secondary" style="width:100%;margin:-4px 0 12px;font-size:11px;">◎ Jump to max eclipse near this time</button>
     <div class="btnrow">
       <button id="standBtn">🧍 Stand</button>
       <button id="orbitBtn" class="secondary">🌍 Orbit</button>
@@ -125,6 +135,18 @@
         <option value="0">Paused</option>
       </select>
     </div>
+    <details class="readout" id="bookmarksPanel">
+      <summary>Bookmarks</summary>
+      <div class="row" style="margin-top:8px;">
+        <input type="text" id="bmName" placeholder="Name this view" autocomplete="off" maxlength="60" />
+        <button id="bmSaveBtn" style="flex:0 0 auto;">＋ Save</button>
+      </div>
+      <div id="bmEmpty" style="font-size:11px;color:#6b7688;margin:2px 0 6px;">
+        Saves the location, camera, date/time and settings.
+      </div>
+      <div id="bmList"></div>
+    </details>
+
     <details class="readout" id="weatherPanel">
       <summary>Weather</summary>
       <div class="btnrow" style="margin-top:8px;">

@@ -32,12 +32,31 @@ if (hasIonToken) {
     .catch((e) => console.warn("World Terrain unavailable:", e));
 }
 
-// Animated moon-phase logo icon (cycles waxing → waning).
+// Animated moon-phase logo icon + favicon (cycles waxing → waning).
 (() => {
   const el = document.getElementById("phaseIcon");
+  const link = document.getElementById("favicon");
   const phases = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+
+  // Pre-render each phase to a data URL once; swapping href per tick is then cheap.
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  ctx.font = "52px -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const icons = phases.map((p) => {
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.fillText(p, 32, 34);
+    return canvas.toDataURL("image/png");
+  });
+
   let i = 0;
-  setInterval(() => { i = (i + 1) % phases.length; el.textContent = phases[i]; }, 400);
+  setInterval(() => {
+    i = (i + 1) % phases.length;
+    el.textContent = phases[i];
+    link.href = icons[i];
+  }, 400);
 })();
 
 const scene = viewer.scene;
@@ -271,39 +290,6 @@ applyBtn.addEventListener("click", () => {
   speedSel.value = "0";
   update();
   saveState();
-});
-
-// Sun–Moon angular separation (radians) at an instant, for the given location.
-function separationAt(date, lat, lon) {
-  const s = SunCalc.getPosition(date, lat, lon);
-  const m = SunCalc.getMoonPosition(date, lat, lon);
-  return Math.acos(Cesium.Math.clamp(
-    Math.sin(s.altitude) * Math.sin(m.altitude) +
-    Math.cos(s.altitude) * Math.cos(m.altitude) * Math.cos(s.azimuth - m.azimuth), -1, 1));
-}
-
-// Scan ±6 h around the current time for the moment of closest sun–moon approach.
-document.getElementById("maxEclipseBtn").addEventListener("click", () => {
-  if (!selected) { alert("Pick a location first."); return; }
-  const { lat, lon } = selected;
-  const center = Cesium.JulianDate.toDate(viewer.clock.currentTime).getTime();
-  let best = center, bestSep = Infinity;
-  for (let dt = -6 * 3600e3; dt <= 6 * 3600e3; dt += 120e3) {   // coarse: 2-min steps
-    const sep = separationAt(new Date(center + dt), lat, lon);
-    if (sep < bestSep) { bestSep = sep; best = center + dt; }
-  }
-  const coarse = best;
-  for (let dt = -120e3; dt <= 120e3; dt += 2000) {              // refine: 2-sec steps
-    const sep = separationAt(new Date(coarse + dt), lat, lon);
-    if (sep < bestSep) { bestSep = sep; best = coarse + dt; }
-  }
-  setLive(false);
-  viewer.clock.shouldAnimate = false;
-  viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date(best));
-  speedSel.value = "0";
-  update();
-  saveState();
-  searchMsg.textContent = `Closest approach: sun–moon gap ${(bestSep * 180 / Math.PI).toFixed(2)}°`;
 });
 
 document.getElementById("speed").addEventListener("change", (e) => {
@@ -619,36 +605,40 @@ const speedSel = document.getElementById("speed");
 const buildingsChk = document.getElementById("buildings");
 const readoutEl = document.getElementById("readout");
 
+// The complete snapshot of "where/when/how you're looking" — shared by the
+// autosave above and by named bookmarks below, so the two can never drift.
+function captureState() {
+  const c = viewer.camera;
+  const carto = c.positionCartographic;
+  return {
+    selected, groundMode,
+    live: liveMode,
+    timeISO: Cesium.JulianDate.toDate(viewer.clock.currentTime).toISOString(),
+    dt: dtInput.value,
+    speed: speedSel.value,
+    buildings: buildingsChk.checked,
+    fps: fpsEnabled,
+    follow: followChk.checked,
+    followBody: followSel.value,
+    search: searchInput.value,
+    searchMsg: searchMsg.textContent,
+    detailsOpen: readoutEl.open,
+    cam: {
+      lon: Cesium.Math.toDegrees(carto.longitude),
+      lat: Cesium.Math.toDegrees(carto.latitude),
+      height: carto.height,
+      heading: c.heading, pitch: c.pitch, roll: c.roll,
+    },
+  };
+}
+
 function saveState() {
   try {
-    const c = viewer.camera;
-    const carto = c.positionCartographic;
-    localStorage.setItem(STORE_KEY, JSON.stringify({
-      selected, groundMode,
-      live: liveMode,
-      timeISO: Cesium.JulianDate.toDate(viewer.clock.currentTime).toISOString(),
-      dt: dtInput.value,
-      speed: speedSel.value,
-      buildings: buildingsChk.checked,
-      fps: fpsEnabled,
-      follow: followChk.checked,
-      followBody: followSel.value,
-      search: searchInput.value,
-      searchMsg: searchMsg.textContent,
-      detailsOpen: readoutEl.open,
-      cam: {
-        lon: Cesium.Math.toDegrees(carto.longitude),
-        lat: Cesium.Math.toDegrees(carto.latitude),
-        height: carto.height,
-        heading: c.heading, pitch: c.pitch, roll: c.roll,
-      },
-    }));
+    localStorage.setItem(STORE_KEY, JSON.stringify(captureState()));
   } catch (e) { /* storage unavailable / private mode */ }
 }
 
-function restoreState() {
-  let s;
-  try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { return false; }
+function applyState(s) {
   if (!s) return false;
 
   selected = s.selected || null;
@@ -683,6 +673,12 @@ function restoreState() {
   return true;
 }
 
+function restoreState() {
+  let s;
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { return false; }
+  return applyState(s);
+}
+
 // Save on control changes, when the camera settles, periodically, and on exit.
 [speedSel, buildingsChk, lookCheckbox].forEach((el) =>
   el.addEventListener("change", saveState));
@@ -690,6 +686,104 @@ readoutEl.addEventListener("toggle", saveState);
 scene.camera.moveEnd.addEventListener(saveState);
 setInterval(saveState, 2000);                 // captures ongoing time/FPV movement
 window.addEventListener("beforeunload", saveState);
+
+// ---- Bookmarks -------------------------------------------------------------
+// Named snapshots of the full app state (location, camera, date/time, settings).
+const BOOKMARKS_KEY = "moonsun.earth.bookmarks.v1";
+const bmName = document.getElementById("bmName");
+const bmSaveBtn = document.getElementById("bmSaveBtn");
+const bmList = document.getElementById("bmList");
+const bmEmpty = document.getElementById("bmEmpty");
+
+function loadBookmarks() {
+  try { return JSON.parse(localStorage.getItem(BOOKMARKS_KEY)) || []; } catch (e) { return []; }
+}
+function storeBookmarks(list) {
+  try {
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    searchMsg.textContent = "Couldn't save bookmark (storage full or unavailable).";
+    return false;
+  }
+}
+
+// A default name beats making the user think: the place, else the coordinates.
+function suggestName() {
+  const s = searchInput.value.trim();
+  if (s) return s;
+  if (selected) return `${selected.lat.toFixed(3)}, ${selected.lon.toFixed(3)}`;
+  return "Untitled view";
+}
+
+function describe(bm) {
+  const place = bm.state.search || (bm.state.selected
+    ? `${bm.state.selected.lat.toFixed(2)}, ${bm.state.selected.lon.toFixed(2)}`
+    : "No location");
+  if (bm.state.live) return `${place} · live`;
+  // dt holds the location's local time — the same convention as the date field.
+  if (bm.state.dt) return `${place} · ${bm.state.dt.replace("T", " ")}`;
+  const d = new Date(bm.state.timeISO);
+  return `${place} · ${isNaN(d) ? "—" : d.toISOString().slice(0, 16).replace("T", " ") + "Z"}`;
+}
+
+function renderBookmarks() {
+  const list = loadBookmarks();
+  bmList.textContent = "";
+  bmEmpty.style.display = list.length ? "none" : "block";
+
+  for (const bm of list) {
+    const row = document.createElement("div");
+    row.className = "bmrow";
+
+    const go = document.createElement("button");
+    go.className = "bmgo";
+    go.title = "Restore this view";
+    go.innerHTML = `<span class="bmlabel"></span><span class="bmmeta"></span>`;
+    // textContent, not innerHTML — bookmark names are user input.
+    go.querySelector(".bmlabel").textContent = bm.name;
+    go.querySelector(".bmmeta").textContent = describe(bm);
+    go.addEventListener("click", () => {
+      applyState(bm.state);
+      update();
+      saveState();
+      if (window.applyWeather) window.applyWeather();
+    });
+
+    const del = document.createElement("button");
+    del.className = "bmdel";
+    del.title = "Delete bookmark";
+    del.textContent = "✕";
+    del.addEventListener("click", () => {
+      if (!confirm(`Delete bookmark “${bm.name}”?`)) return;
+      storeBookmarks(loadBookmarks().filter((b) => b.id !== bm.id));
+      renderBookmarks();
+    });
+
+    row.append(go, del);
+    bmList.append(row);
+  }
+}
+
+function saveBookmark() {
+  const name = (bmName.value.trim() || suggestName()).slice(0, 60);
+  const list = loadBookmarks();
+  const existing = list.find((b) => b.name.toLowerCase() === name.toLowerCase());
+  if (existing && !confirm(`“${name}” already exists. Overwrite it?`)) return;
+
+  const entry = { id: existing ? existing.id : String(Date.now()), name, state: captureState() };
+  if (existing) list[list.indexOf(existing)] = entry;
+  else list.unshift(entry);
+
+  if (!storeBookmarks(list)) return;
+  bmName.value = "";
+  renderBookmarks();
+}
+
+bmSaveBtn.addEventListener("click", saveBookmark);
+bmName.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBookmark(); });
+bmName.addEventListener("focus", () => { bmName.placeholder = suggestName(); });
+renderBookmarks();
 
 // ---- Initialise ------------------------------------------------------------
 if (!restoreState()) setLive(true);
