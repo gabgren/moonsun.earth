@@ -522,6 +522,34 @@ function fmtTime(date, tz) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: tz });
 }
 
+// Per-location eclipse verdict (kind / % obscured / peak time), recomputed only
+// when the pin or the date changes. Uses astronomy-engine's authoritative search.
+let _eclKey = "";
+function updateLocalEclipse(now, tz) {
+  const el = document.getElementById("localEclipse");
+  if (!selected || typeof Astronomy === "undefined") { el.textContent = ""; _eclKey = ""; return; }
+  const key = selected.lat.toFixed(3) + "," + selected.lon.toFixed(3) + "|" + now.toISOString().slice(0, 10);
+  if (key === _eclKey) return;
+  _eclKey = key;
+  try {
+    const obs = new Astronomy.Observer(selected.lat, selected.lon, selected.height || 0);
+    const e = Astronomy.SearchLocalSolarEclipse(new Date(now.getTime() - 24 * 3600e3), obs);
+    const peak = e.peak.time.date;
+    if (Math.abs(peak - now) / 86400e3 > 2) {
+      el.textContent = `☉ no eclipse here this day — next ${peak.toLocaleDateString([], { timeZone: tz })}`;
+      el.style.color = "#7f8b9e";
+      return;
+    }
+    const kind = e.kind.charAt(0).toUpperCase() + e.kind.slice(1);
+    const pct = Math.round(e.obscuration * 100);
+    const at = peak.toLocaleTimeString([], { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+    const below = e.peak.altitude <= 0 ? " · below horizon" : "";
+    el.textContent = `☉ ${kind} · ${pct}% covered · max ${at}${below}`;
+    el.style.color = e.kind === "total" ? "#ffd166"
+      : e.peak.altitude <= 0 ? "#7f8b9e" : "#a8c7ff";
+  } catch (err) { el.textContent = ""; }
+}
+
 function update() {
   const now = Cesium.JulianDate.toDate(viewer.clock.currentTime);
   const tz = currentTz();
@@ -533,6 +561,7 @@ function update() {
 
   if (!selected) { sunTip = moonTip = null; return; }
   const { lon, lat, height } = selected;
+  updateLocalEclipse(now, tz);
 
   const sun = SunCalc.getPosition(now, lat, lon);       // az from south, alt
   const moon = SunCalc.getMoonPosition(now, lat, lon);
