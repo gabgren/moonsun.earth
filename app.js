@@ -290,6 +290,8 @@ applyBtn.addEventListener("click", () => {
   speedSel.value = "0";
   update();
   saveState();
+  // The clock jumped, so the eclipse band must be redrawn for the new instant.
+  if (window.recomputeEclipsePath) window.recomputeEclipsePath();
 });
 
 document.getElementById("speed").addEventListener("change", (e) => {
@@ -603,6 +605,7 @@ followSel.addEventListener("change", () => { saveState(); update(); });
 const STORE_KEY = "moonsun.earth.state.v1";
 const speedSel = document.getElementById("speed");
 const buildingsChk = document.getElementById("buildings");
+const eclipsePathChk = document.getElementById("eclipsePath");
 const readoutEl = document.getElementById("readout");
 
 // The complete snapshot of "where/when/how you're looking" — shared by the
@@ -617,6 +620,7 @@ function captureState() {
     dt: dtInput.value,
     speed: speedSel.value,
     buildings: buildingsChk.checked,
+    eclipsePath: eclipsePathChk.checked,
     fps: fpsEnabled,
     follow: followChk.checked,
     followBody: followSel.value,
@@ -650,6 +654,10 @@ function applyState(s) {
   // Params — set value then fire change so side effects (multiplier) run.
   if (s.speed !== undefined) { speedSel.value = s.speed; speedSel.dispatchEvent(new Event("change")); }
   if (s.buildings && hasIonToken) { buildingsChk.checked = true; buildingsChk.dispatchEvent(new Event("change")); }
+  if (eclipsePathChk.checked !== !!s.eclipsePath) {
+    eclipsePathChk.checked = !!s.eclipsePath;
+    eclipsePathChk.dispatchEvent(new Event("change"));   // draws/clears the band
+  }
   if (s.followBody) followSel.value = s.followBody;
   followChk.checked = !!s.follow;
   setLookMode(!!s.fps);
@@ -680,7 +688,7 @@ function restoreState() {
 }
 
 // Save on control changes, when the camera settles, periodically, and on exit.
-[speedSel, buildingsChk, lookCheckbox].forEach((el) =>
+[speedSel, buildingsChk, eclipsePathChk, lookCheckbox].forEach((el) =>
   el.addEventListener("change", saveState));
 readoutEl.addEventListener("toggle", saveState);
 scene.camera.moveEnd.addEventListener(saveState);
@@ -748,6 +756,7 @@ function renderBookmarks() {
       update();
       saveState();
       if (window.applyWeather) window.applyWeather();
+      if (window.recomputeEclipsePath) window.recomputeEclipsePath();
     });
 
     const del = document.createElement("button");
