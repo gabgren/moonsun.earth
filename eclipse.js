@@ -73,7 +73,16 @@
 
   let umbraEntity = null;
 
-  function drawPath(centerJD) {
+  async function drawPath(centerJD) {
+    // Load precise Earth-orientation (ICRF↔fixed) data for the eclipse window so
+    // the shadow geometry uses the real rotation, not the coarse fallback.
+    try {
+      await Cesium.Transforms.preloadIcrfFixed(new Cesium.TimeInterval({
+        start: Cesium.JulianDate.addDays(centerJD, -1, new Cesium.JulianDate()),
+        stop: Cesium.JulianDate.addDays(centerJD, 1, new Cesium.JulianDate()),
+      }));
+    } catch (e) { /* falls back to the approximate frame */ }
+
     ds.entities.removeAll();
     umbraEntity = null;
 
