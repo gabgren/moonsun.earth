@@ -15,12 +15,18 @@
     Cesium.Transforms.computeIcrfToFixedMatrix(jd) ||
     Cesium.Transforms.computeTemeToPseudoFixedMatrix(jd);
 
-  // Sun & Moon in Earth-fixed (ECEF) metres at a Julian date.
+  // Sun & Moon in Earth-fixed (ECEF) metres at a Julian date, using the
+  // high-precision astronomy-engine ephemeris (J2000/EQJ ≈ Cesium's ICRF),
+  // then Cesium's precise ICRF→fixed rotation.
+  const AU = 1.495978707e11;   // metres
   function bodies(jd) {
     const m = toFixed(jd);
     if (!m) return null;
-    const sunI = Cesium.Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(jd);
-    const moonI = Cesium.Simon1994PlanetaryPositions.computeMoonPositionInEarthInertialFrame(jd);
+    const date = Cesium.JulianDate.toDate(jd);
+    const sv = Astronomy.GeoVector(Astronomy.Body.Sun, date, false);   // light-time corrected
+    const mv = Astronomy.GeoVector(Astronomy.Body.Moon, date, false);
+    const sunI = new Cesium.Cartesian3(sv.x * AU, sv.y * AU, sv.z * AU);
+    const moonI = new Cesium.Cartesian3(mv.x * AU, mv.y * AU, mv.z * AU);
     return {
       sun: Cesium.Matrix3.multiplyByVector(m, sunI, new Cesium.Cartesian3()),
       moon: Cesium.Matrix3.multiplyByVector(m, moonI, new Cesium.Cartesian3()),
