@@ -100,15 +100,15 @@ let colorGradeStage = null;
       name: "moonsun_grade",
       fragmentShader: [
         "uniform sampler2D colorTexture;",
-        "varying vec2 v_textureCoordinates;",
+        "in vec2 v_textureCoordinates;",
         "void main() {",
-        "  vec4 color = texture2D(colorTexture, v_textureCoordinates);",
+        "  vec4 color = texture(colorTexture, v_textureCoordinates);",
         "  vec2 uv = v_textureCoordinates - 0.5;",
         "  float vig = smoothstep(0.95, 0.32, length(uv));",
         "  color.rgb *= mix(0.68, 1.0, vig);",              // vignette
         "  color.rgb = (color.rgb - 0.5) * 1.07 + 0.5;",    // gentle contrast
         "  color.rgb *= vec3(1.03, 1.0, 0.965);",           // warm tint
-        "  gl_FragColor = color;",
+        "  out_FragColor = color;",
         "}",
       ].join("\n"),
     }));
