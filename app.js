@@ -304,6 +304,7 @@ document.getElementById("maxEclipseBtn").addEventListener("click", () => {
   update();
   saveState();
   searchMsg.textContent = `Closest approach: sun–moon gap ${(bestSep * 180 / Math.PI).toFixed(2)}°`;
+  if (window.recomputeEclipsePath) window.recomputeEclipsePath();
 });
 
 document.getElementById("speed").addEventListener("change", (e) => {

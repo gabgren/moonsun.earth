@@ -91,7 +91,10 @@
       <button id="liveBtn">● Live</button>
       <button id="applyBtn" class="secondary">Apply time</button>
     </div>
-    <button id="maxEclipseBtn" class="secondary" style="width:100%;margin:-4px 0 12px;font-size:11px;">◎ Jump to max eclipse near this time</button>
+    <button id="maxEclipseBtn" class="secondary" style="width:100%;margin:-4px 0 6px;font-size:11px;">◎ Jump to max eclipse near this time</button>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa4b4;margin:0 0 12px;cursor:pointer;">
+      <input type="checkbox" id="eclipsePath" style="width:auto;flex:0 0 auto;" /> Show eclipse path (band)
+    </label>
     <div class="btnrow">
       <button id="standBtn">🧍 Stand</button>
       <button id="orbitBtn" class="secondary">🌍 Orbit</button>
@@ -168,5 +171,6 @@
 
   <script src="app.js"></script>
   <script src="weather.js"></script>
+  <script src="eclipse.js"></script>
 </body>
 </html>
