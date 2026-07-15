@@ -67,6 +67,93 @@ scene.moon.show = true;
 scene.skyAtmosphere.show = true;
 scene.globe.dynamicAtmosphereLighting = true;
 
+// ---- Cinematic ambiance (HDR, bloom, shadows, atmosphere, colour grade) -----
+let colorGradeStage = null;
+(function ambiance() {
+  try {
+    scene.highDynamicRange = true;
+    try { scene.msaaSamples = 4; } catch (e) { /* WebGL1 */ }
+    if (scene.postProcessStages.fxaa) scene.postProcessStages.fxaa.enabled = true;
+
+    scene.globe.showGroundAtmosphere = true;
+    scene.globe.atmosphereLightIntensity = 12;
+    scene.fog.enabled = true;
+    scene.fog.density = 0.0002;
+
+    // Sun-driven shadows (dramatic at low sun / eclipse dusk).
+    scene.shadowMap.enabled = true;
+    scene.shadowMap.softShadows = true;
+    scene.shadowMap.size = 2048;
+    scene.shadowMap.maximumDistance = 20000;
+
+    const bloom = scene.postProcessStages.bloom;
+    bloom.enabled = true;
+    bloom.uniforms.glowOnly = false;
+    bloom.uniforms.contrast = 128;
+    bloom.uniforms.brightness = -0.2;
+    bloom.uniforms.delta = 1.0;
+    bloom.uniforms.sigma = 2.2;
+    bloom.uniforms.stepSize = 1.0;
+
+    // Vignette + subtle warm colour grade for ambiance.
+    colorGradeStage = scene.postProcessStages.add(new Cesium.PostProcessStage({
+      name: "moonsun_grade",
+      fragmentShader: [
+        "uniform sampler2D colorTexture;",
+        "varying vec2 v_textureCoordinates;",
+        "void main() {",
+        "  vec4 color = texture2D(colorTexture, v_textureCoordinates);",
+        "  vec2 uv = v_textureCoordinates - 0.5;",
+        "  float vig = smoothstep(0.95, 0.32, length(uv));",
+        "  color.rgb *= mix(0.68, 1.0, vig);",              // vignette
+        "  color.rgb = (color.rgb - 0.5) * 1.07 + 0.5;",    // gentle contrast
+        "  color.rgb *= vec3(1.03, 1.0, 0.965);",           // warm tint
+        "  gl_FragColor = color;",
+        "}",
+      ].join("\n"),
+    }));
+  } catch (e) { console.warn("Ambiance setup issue:", e); }
+})();
+
+function setCinematic(on) {
+  try {
+    scene.highDynamicRange = on;
+    scene.shadowMap.enabled = on;
+    scene.postProcessStages.bloom.enabled = on;
+    if (colorGradeStage) colorGradeStage.enabled = on;
+  } catch (e) { /* ignore */ }
+}
+const cinematicChk = document.getElementById("cinematic");
+if (cinematicChk) cinematicChk.addEventListener("change", (e) => setCinematic(e.target.checked));
+
+// ---- Google Photorealistic 3D Tiles (the real "Google Earth" mesh) ----------
+// Add a Google Map Tiles API key to enable (https://developers.google.com/maps/documentation/tile).
+const GOOGLE_MAPS_API_KEY = "";
+let googleTiles = null;
+async function toggleGoogle3D(on) {
+  const box = document.getElementById("google3d");
+  try {
+    if (on) {
+      if (!GOOGLE_MAPS_API_KEY) {
+        alert("Add a Google Map Tiles API key to GOOGLE_MAPS_API_KEY in app.js to use Google 3D.");
+        if (box) box.checked = false; return;
+      }
+      if (!googleTiles) {
+        Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
+        googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
+        scene.primitives.add(googleTiles);
+      }
+      googleTiles.show = true;
+      scene.globe.show = false;      // hide the raster globe under the photoreal mesh
+    } else {
+      if (googleTiles) googleTiles.show = false;
+      scene.globe.show = true;
+    }
+  } catch (err) { alert("Google 3D tiles failed to load: " + err); if (box) box.checked = false; }
+}
+const google3dChk = document.getElementById("google3d");
+if (google3dChk) google3dChk.addEventListener("change", (e) => toggleGoogle3D(e.target.checked));
+
 // Start "live"
 viewer.clock.shouldAnimate = true;
 viewer.clock.multiplier = 1;
