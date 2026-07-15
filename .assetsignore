@@ -1,4 +1,6 @@
 .claude
 .assetsignore
+.gitignore
 README.md
 DEPLOY.md
+screenshot.png
