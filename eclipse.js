@@ -95,7 +95,9 @@
     const pts = [];
     for (let dm = -210; dm <= 210; dm += 1) {              // march ±3.5 h at 1-min steps
       const c = shadowCenter(Cesium.JulianDate.addMinutes(centerJD, dm, new Cesium.JulianDate()));
-      if (c && c.alt > D2R(1)) pts.push(c);
+      // Keep the track down to the sunset horizon (upper limb ≈ −0.8°), so it
+      // reaches the coast where an eclipsed Sun actually sets.
+      if (c && c.alt > D2R(-0.8)) pts.push(c);
     }
     if (pts.length < 2) {
       chk.checked = false;
@@ -149,7 +151,7 @@
   function updateUmbra() {
     if (!umbraEntity) return;
     const c = shadowCenter(viewer.clock.currentTime);
-    if (!c || c.alt < D2R(1)) { umbraEntity.show = false; return; }
+    if (!c || c.alt < D2R(-0.8)) { umbraEntity.show = false; return; }
     umbraEntity.show = true;
     umbraEntity.position = Cesium.Cartesian3.fromDegrees(c.lon, c.lat);
     umbraEntity.ellipse.semiMinorAxis = Math.max(3000, Math.abs(c.rUmbra));
