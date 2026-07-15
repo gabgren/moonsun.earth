@@ -104,35 +104,42 @@
       return;
     }
 
-    const center = [], north = [], south = [];
-    for (let i = 0; i < pts.length; i++) {
+    // Per-point perpendicular directions, for offsetting the band edges.
+    const info = pts.map((p, i) => {
       const brg = bearing(pts[Math.max(0, i - 1)], pts[Math.min(pts.length - 1, i + 1)]);
-      const p = pts[i];
-      center.push(p.lon, p.lat);
-      const n = dest(p.lat, p.lon, brg - Math.PI / 2, p.halfW);
-      const s = dest(p.lat, p.lon, brg + Math.PI / 2, p.halfW);
-      north.push(n.lon, n.lat); south.push(s.lon, s.lat);
+      return { lon: p.lon, lat: p.lat, brgN: brg - Math.PI / 2, brgS: brg + Math.PI / 2, halfW: p.halfW };
+    });
+
+    // Dark-blue band drawn as concentric layers (widest first): overlap makes it
+    // densest on the centre line and fade to transparent toward the limits.
+    const BAND = Cesium.Color.fromCssColorString("#0b1e5b");
+    const K = 7;
+    for (let k = K; k >= 1; k--) {
+      const f = k / K, ring = [];
+      for (const p of info) { const n = dest(p.lat, p.lon, p.brgN, p.halfW * f); ring.push(n.lon, n.lat); }
+      for (let i = info.length - 1; i >= 0; i--) {
+        const p = info[i], s = dest(p.lat, p.lon, p.brgS, p.halfW * f); ring.push(s.lon, s.lat);
+      }
+      ds.entities.add({ polygon: {
+        hierarchy: Cesium.Cartesian3.fromDegreesArray(ring),
+        material: BAND.withAlpha(0.13), classificationType: Cesium.ClassificationType.BOTH,
+      } });
     }
 
-    // Shaded band (northern edge → southern edge reversed).
-    const ring = north.slice();
-    for (let i = south.length - 2; i >= 0; i -= 2) ring.push(south[i], south[i + 1]);
-    ds.entities.add({ polygon: {
-      hierarchy: Cesium.Cartesian3.fromDegreesArray(ring),
-      material: Cesium.Color.BLACK.withAlpha(0.35), classificationType: Cesium.ClassificationType.BOTH,
+    // Blue centre line.
+    const center = [];
+    for (const p of info) center.push(p.lon, p.lat);
+    ds.entities.add({ polyline: {
+      positions: Cesium.Cartesian3.fromDegreesArray(center), width: 2.5,
+      material: Cesium.Color.fromCssColorString("#5aa9ff"), clampToGround: true,
     } });
-    const line = (arr, color, w) => ds.entities.add({ polyline: {
-      positions: Cesium.Cartesian3.fromDegreesArray(arr), width: w, material: color, clampToGround: true,
-    } });
-    line(south, Cesium.Color.ORANGERED, 2);
-    line(north, Cesium.Color.ORANGERED, 2);
-    line(center, Cesium.Color.YELLOW, 2);
 
     // Live shadow spot (updated each tick to follow the clock).
     umbraEntity = ds.entities.add({
       position: Cesium.Cartesian3.fromDegrees(pts[0].lon, pts[0].lat),
       ellipse: {
-        semiMinorAxis: 1, semiMajorAxis: 1, material: Cesium.Color.BLACK.withAlpha(0.55),
+        semiMinorAxis: 1, semiMajorAxis: 1,
+        material: Cesium.Color.fromCssColorString("#0b1e5b").withAlpha(0.7),
         classificationType: Cesium.ClassificationType.BOTH,
       },
     });
