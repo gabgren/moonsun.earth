@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MoonSun.Earth — Sun &amp; Moon in the sky from anywhere on Earth</title>
+
+  <!-- CesiumJS -->
+  <link href="https://cdn.jsdelivr.net/npm/cesium@1.123/Build/Cesium/Widgets/widgets.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.123/Build/Cesium/Cesium.js"></script>
+  <!-- SunCalc for numeric sun/moon position + rise/set + phase -->
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+  <!-- tz-lookup: IANA timezone from lat/lon, so entered time = location's local time -->
+  <script src="https://cdn.jsdelivr.net/npm/tz-lookup@6.1.25/tz.js"></script>
+
+  <style>
+    :root { color-scheme: dark; }
+    html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; }
+
+    #panel {
+      position: absolute; top: 12px; left: 12px; z-index: 10;
+      width: 300px; max-height: calc(100% - 185px); overflow-y: auto;
+      background: rgba(18, 22, 30, 0.88); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      padding: 14px 16px; color: #e8ecf2; font-size: 13px; line-height: 1.45;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    #panel h1 { font-size: 15px; margin: 0 0 2px; letter-spacing: .3px; }
+    #panel .sub { font-size: 11px; color: #8b95a5; margin-bottom: 12px; }
+    .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .row label { flex: 0 0 62px; color: #9aa4b4; font-size: 12px; }
+    input[type="datetime-local"], select, input[type="text"] {
+      flex: 1; background: #0d1017; border: 1px solid #2a3040; color: #e8ecf2;
+      border-radius: 7px; padding: 6px 8px; font-size: 12px; min-width: 0;
+    }
+    button {
+      background: #2563eb; color: #fff; border: none; border-radius: 7px;
+      padding: 7px 10px; font-size: 12px; cursor: pointer; font-weight: 600;
+    }
+    button.secondary { background: #2a3040; }
+    button:hover { filter: brightness(1.12); }
+    .btnrow { display: flex; gap: 8px; margin: 4px 0 12px; }
+    .btnrow button { flex: 1; }
+
+    .readout { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px; margin-top: 6px; }
+    details.readout > summary {
+      cursor: pointer; list-style: none; user-select: none; padding: 4px 0;
+      font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #9aa4b4;
+    }
+    details.readout > summary::-webkit-details-marker { display: none; }
+    details.readout > summary::before { content: "▸"; display: inline-block; width: 14px; color: #7f8b9e; }
+    details.readout[open] > summary::before { content: "▾"; }
+    details.readout > summary:hover { color: #e8ecf2; }
+    .readout h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #7f8b9e; margin: 10px 0 6px; }
+    .stat { display: flex; justify-content: space-between; margin: 3px 0; }
+    .stat .k { color: #9aa4b4; }
+    .stat .v { color: #fff; font-variant-numeric: tabular-nums; }
+    .sun .v { color: #ffd166; }
+    .moon .v { color: #a8c7ff; }
+    .hint { font-size: 11px; color: #7f8b9e; margin-top: 10px; }
+    /* Weather */
+    #wxVeil { position: absolute; inset: 0; z-index: 2; pointer-events: none;
+              background: rgba(0,0,0,0); transition: background .4s ease; }
+    .wxrow { display: block; font-size: 11px; color: #9aa4b4; margin: 8px 0; }
+    .wxrow > span { float: right; color: #e8ecf2; font-variant-numeric: tabular-nums; }
+    .wxrow input[type="range"] { width: 100%; margin-top: 4px; accent-color: #6ea8fe; }
+    .badge { display:inline-block; font-size:10px; padding:2px 6px; border-radius:999px; background:#1e2636; color:#8b95a5; margin-left:6px; }
+    a { color: #6ea8fe; }
+  </style>
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <div id="wxVeil"></div>
+
+  <div id="panel">
+    <h1><span id="phaseIcon">🌗</span>🌞🌏 moonsun<span style="color:#7f8b9e;font-weight:400;">.earth</span></h1>
+    <div class="sub">Search a place, enter coordinates, or click the globe.</div>
+
+    <div class="row">
+      <input type="text" id="search" placeholder="City, address, or lat, lon" autocomplete="off" />
+      <button id="searchBtn" style="flex:0 0 auto;">Go</button>
+    </div>
+    <div id="searchMsg" style="font-size:11px;color:#8b95a5;min-height:14px;margin:-4px 0 8px;"></div>
+
+    <div class="row">
+      <label>Date / time</label>
+      <input type="datetime-local" id="dt" step="60" />
+    </div>
+    <div class="btnrow">
+      <button id="liveBtn">● Live</button>
+      <button id="applyBtn" class="secondary">Apply time</button>
+    </div>
+    <button id="maxEclipseBtn" class="secondary" style="width:100%;margin:-4px 0 12px;font-size:11px;">◎ Jump to max eclipse near this time</button>
+    <div class="btnrow">
+      <button id="standBtn">🧍 Stand</button>
+      <button id="orbitBtn" class="secondary">🌍 Orbit</button>
+      <button id="topBtn" class="secondary">🗺 Top</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa4b4;margin:-2px 0 6px;cursor:pointer;">
+      <input type="checkbox" id="buildings" style="width:auto;flex:0 0 auto;" /> Show 3D buildings
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa4b4;margin:-2px 0 4px;cursor:pointer;">
+      <input type="checkbox" id="lookmode" style="width:auto;flex:0 0 auto;" /> FPV Mode
+    </label>
+    <div id="fpsHint" style="font-size:10.5px;color:#6b7688;margin:0 0 10px;display:none;">
+      Drag to look · <b>WASD</b> move · <b>Space/C</b> up/down · <b>Shift</b> sprint · <b>double-click</b> to teleport
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin:-2px 0 12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa4b4;cursor:pointer;">
+        <input type="checkbox" id="follow" style="width:auto;flex:0 0 auto;" /> Camera follow:
+      </label>
+      <select id="followBody" style="flex:0 0 auto;width:auto;padding:3px 8px;">
+        <option value="sun">☀️ Sun</option>
+        <option value="moon">🌙 Moon</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Speed</label>
+      <select id="speed">
+        <option value="1">Real-time (1×)</option>
+        <option value="60">1 min / sec</option>
+        <option value="600">10 min / sec</option>
+        <option value="3600">1 hour / sec</option>
+        <option value="0">Paused</option>
+      </select>
+    </div>
+    <details class="readout" id="weatherPanel">
+      <summary>Weather</summary>
+      <div class="btnrow" style="margin-top:8px;">
+        <button id="wxLive" class="secondary" style="font-size:11px;">⟳ Live/forecast</button>
+        <button id="wxClim" class="secondary" style="font-size:11px;">📊 Climatology</button>
+      </div>
+      <div id="wxMsg" style="font-size:11px;color:#8b95a5;min-height:14px;margin:0 0 6px;"></div>
+      <label class="wxrow">Low cloud <span id="wxLowV">0%</span>
+        <input type="range" id="wxLow" min="0" max="100" value="0" /></label>
+      <label class="wxrow">Mid cloud <span id="wxMidV">0%</span>
+        <input type="range" id="wxMid" min="0" max="100" value="0" /></label>
+      <label class="wxrow">High cloud <span id="wxHighV">0%</span>
+        <input type="range" id="wxHigh" min="0" max="100" value="0" /></label>
+      <label class="wxrow">Visibility <span id="wxVisV">40 km</span>
+        <input type="range" id="wxVis" min="1" max="60" value="40" /></label>
+      <label class="wxrow">Haze / aerosol <span id="wxHazeV">0</span>
+        <input type="range" id="wxHaze" min="0" max="100" value="0" /></label>
+    </details>
+
+    <details class="readout" id="readout" open>
+      <summary>Details</summary>
+      <div class="stat"><span class="k">Location</span><span class="v" id="loc">— tap the map —</span></div>
+      <div class="stat"><span class="k">Local time</span><span class="v" id="localtime">—</span></div>
+
+      <h2>Sun <span class="badge" id="sunUp">—</span></h2>
+      <div class="stat sun"><span class="k">Azimuth</span><span class="v" id="sunAz">—</span></div>
+      <div class="stat sun"><span class="k">Elevation</span><span class="v" id="sunEl">—</span></div>
+      <div class="stat sun"><span class="k">Sunrise</span><span class="v" id="sunrise">—</span></div>
+      <div class="stat sun"><span class="k">Sunset</span><span class="v" id="sunset">—</span></div>
+
+      <h2>Moon <span class="badge" id="moonUp">—</span></h2>
+      <div class="stat moon"><span class="k">Azimuth</span><span class="v" id="moonAz">—</span></div>
+      <div class="stat moon"><span class="k">Elevation</span><span class="v" id="moonEl">—</span></div>
+      <div class="stat moon"><span class="k">Phase</span><span class="v" id="moonPhase">—</span></div>
+      <div class="stat moon"><span class="k">Illumination</span><span class="v" id="moonIllum">—</span></div>
+      <div class="stat"><span class="k">Sun–Moon gap</span><span class="v" id="sunMoonSep">—</span></div>
+    </details>
+
+    <div class="hint">Yellow &amp; blue arrows in the scene point toward the sun &amp; moon from your spot. Azimuth is measured clockwise from true north.</div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="weather.js"></script>
+</body>
+</html>
