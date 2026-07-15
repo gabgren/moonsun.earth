@@ -86,7 +86,23 @@
   <div id="cesiumContainer"></div>
   <div id="wxVeil"></div>
 
+  <div id="settingsModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);align-items:center;justify-content:center;">
+    <div style="background:#12161e;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:20px;width:360px;max-width:90vw;color:#e8ecf2;box-shadow:0 10px 40px rgba(0,0,0,0.6);">
+      <h2 style="margin:0 0 4px;font-size:15px;">Settings</h2>
+      <p style="font-size:11px;color:#8b95a5;margin:0 0 16px;">Keys are stored only in your browser (localStorage) — never uploaded.</p>
+      <label style="font-size:12px;color:#9aa4b4;">Google Map Tiles API key</label>
+      <input type="text" id="googleKeyInput" placeholder="AIza…" autocomplete="off" spellcheck="false"
+             style="width:100%;margin:6px 0 4px;background:#0d1017;border:1px solid #2a3040;color:#e8ecf2;border-radius:7px;padding:8px;font-size:12px;" />
+      <p style="font-size:10.5px;color:#6b7688;margin:2px 0 18px;">Enables <b>Google 3D (photoreal)</b>. Enable the <i>Map Tiles API</i> and restrict the key to your domain. <a href="https://developers.google.com/maps/documentation/tile/get-api-key" target="_blank" rel="noopener">Get a key ↗</a></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="settingsClose" class="secondary">Close</button>
+        <button id="settingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="panel">
+    <button id="settingsBtn" title="Settings" style="position:absolute;top:12px;right:12px;background:transparent;padding:2px 5px;font-size:15px;color:#8b95a5;line-height:1;">⚙</button>
     <h1><span id="phaseIcon">🌗</span>🌞🌏 moonsun<span style="color:#7f8b9e;font-weight:400;">.earth</span></h1>
     <div class="sub">Search a place, enter coordinates, or click the globe.</div>
 

@@ -126,20 +126,41 @@ function setCinematic(on) {
 const cinematicChk = document.getElementById("cinematic");
 if (cinematicChk) cinematicChk.addEventListener("change", (e) => setCinematic(e.target.checked));
 
+// ---- Settings (API keys stored in localStorage, never in the repo) ----------
+const GOOGLE_KEY_STORE = "moonsun.earth.googleKey";
+const getGoogleKey = () => { try { return localStorage.getItem(GOOGLE_KEY_STORE) || ""; } catch (e) { return ""; } };
+
+(function settingsUI() {
+  const modal = document.getElementById("settingsModal");
+  const input = document.getElementById("googleKeyInput");
+  const open = () => { input.value = getGoogleKey(); modal.style.display = "flex"; };
+  const close = () => { modal.style.display = "none"; };
+  document.getElementById("settingsBtn").addEventListener("click", open);
+  document.getElementById("settingsClose").addEventListener("click", close);
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+  document.getElementById("settingsSave").addEventListener("click", () => {
+    try { localStorage.setItem(GOOGLE_KEY_STORE, input.value.trim()); } catch (e) {}
+    close();
+    if (googleTiles || document.getElementById("google3d").checked)
+      alert("Key saved. Reload the page to apply it to Google 3D.");
+  });
+  window.__openSettings = open;
+})();
+
 // ---- Google Photorealistic 3D Tiles (the real "Google Earth" mesh) ----------
-// Add a Google Map Tiles API key to enable (https://developers.google.com/maps/documentation/tile).
-const GOOGLE_MAPS_API_KEY = "AIzaSyCBw9ffewDNy3q2c_KIB0q7PBfIEmWDLhk";
 let googleTiles = null;
 async function toggleGoogle3D(on) {
   const box = document.getElementById("google3d");
   try {
     if (on) {
-      if (!GOOGLE_MAPS_API_KEY) {
-        alert("Add a Google Map Tiles API key to GOOGLE_MAPS_API_KEY in app.js to use Google 3D.");
-        if (box) box.checked = false; return;
+      const key = getGoogleKey();
+      if (!key) {
+        if (box) box.checked = false;
+        if (window.__openSettings) window.__openSettings();
+        return;
       }
       if (!googleTiles) {
-        Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
+        Cesium.GoogleMaps.defaultApiKey = key;
         googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
         scene.primitives.add(googleTiles);
       }
