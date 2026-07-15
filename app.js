@@ -128,7 +128,7 @@ if (cinematicChk) cinematicChk.addEventListener("change", (e) => setCinematic(e.
 
 // ---- Google Photorealistic 3D Tiles (the real "Google Earth" mesh) ----------
 // Add a Google Map Tiles API key to enable (https://developers.google.com/maps/documentation/tile).
-const GOOGLE_MAPS_API_KEY = "";
+const GOOGLE_MAPS_API_KEY = "AIzaSyCBw9ffewDNy3q2c_KIB0q7PBfIEmWDLhk";
 let googleTiles = null;
 async function toggleGoogle3D(on) {
   const box = document.getElementById("google3d");
