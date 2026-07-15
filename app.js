@@ -2,7 +2,7 @@
  *
  * SETUP: put your free Cesium ion token below (https://ion.cesium.com/tokens)
  * for terrain elevation + place search. Imagery is Esri (no key needed). */
-const CESIUM_ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiNDU3YWRjNC02ZWZiLTQ3YzEtYjBmOC1mMjBiNGJiYmFhOWIiLCJpZCI6NDU2NDY5LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODQwNTYxMTN9.01SCq8z_dAFGnhnJSwg_0GRqD4_Q7CTekJg6Z-aW0To";  // optional; adds Cesium World Terrain (elevation) + place search
+const CESIUM_ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjMTU1NzY5My0zOTU4LTQ5YTAtYWY4NS1hMzJjYTNmYjc4N2IiLCJpZCI6NDU2NDY5LCJzdWIiOiJnYWJncmVuIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6ImdhYmdyZW5fZGVmYXVsdCIsImlhdCI6MTc4NDA3OTMzMH0.GXflc6xKThcDBUUvkVA4O5tVQeJEtKpxaeUDW607xVY";  // domain-restricted (moonsun.earth + localhost)
 
 const hasIonToken = CESIUM_ION_TOKEN && CESIUM_ION_TOKEN !== "YOUR_CESIUM_ION_TOKEN";
 if (hasIonToken) Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
@@ -42,6 +42,7 @@ if (hasIonToken) {
 
 const scene = viewer.scene;
 scene.globe.enableLighting = true;      // real sun-driven day/night terrain shading
+scene.globe.depthTestAgainstTerrain = true;  // terrain occludes clouds/markers behind hills
 scene.sun.show = true;
 scene.moon.show = true;
 scene.skyAtmosphere.show = true;
